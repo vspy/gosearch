@@ -58,13 +58,13 @@ func writeDoc(writer *dirIndexWriter, doc interface{}) (uint64, error){
 }
 
 type indexEntry struct {
-  entries []indexEntryElement
-  tailOffest uint64
+  Entries []indexEntryElement
+  TailOffest uint64
 }
 
 type indexEntryElement struct {
-  docId uint64
-  freq uint64
+  DocId uint64
+  Freq uint64
 }
 
 func docsToEntryElements(docs map[uint64]([]string)) map[string]([]indexEntryElement) {
@@ -88,8 +88,31 @@ func freqTable(tokens []string) map[string]uint64 {
   return result
 }
 
+const NO_TAIL uint64 = 0xffffffffffffffff
+
 func writeEntry(writer *dirIndexWriter, term string, elements []indexEntryElement) error {
-  //TODO: fixme
+  entry := indexEntry { elements, NO_TAIL }
+
+  if val, ok := writer.termsDict[term]; ok {
+    entry.TailOffest = val
+  }
+
+  writer.termsDict[term] = writer.indexPos
+  b := new(bytes.Buffer)
+  e := gob.NewEncoder(b)
+
+  err := e.Encode(entry)
+  if err != nil {
+    return err
+  }
+
+  l, werr := b.WriteTo(writer.indexWriter)
+  if werr != nil {
+    return werr
+  }
+
+  writer.indexPos = writer.indexPos + uint64(l)
+
   return nil
 }
 

@@ -7,13 +7,16 @@ import (
 
 type dirIndexWriter struct {
   location string
-  termDictionary map[string]uint64
+  termsDict map[string]uint64
   docId uint64
   docWriter io.Writer
   docWriterPos uint64
   docIndexWriter io.Writer
+
   indexWriter io.Writer
-  termDictWriter io.Writer
+  indexPos uint64
+
+  termsDictWriter io.Writer
 }
 
 func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {
@@ -32,9 +35,9 @@ func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {
     return nil, indexErr
   }
 
-  termDictWriter, termDictErr := os.Create(termsLocation(location))
-  if termDictErr != nil {
-    return nil, termDictErr
+  termsDictWriter, termsDictErr := os.Create(termsLocation(location))
+  if termsDictErr != nil {
+    return nil, termsDictErr
   }
 
   return &dirIndexWriter{
@@ -45,6 +48,7 @@ func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {
     0,
     docIndexWriter,
     indexWriter,
-    termDictWriter,
+    0,
+    termsDictWriter,
   }, nil
 }
