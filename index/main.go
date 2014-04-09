@@ -13,8 +13,10 @@ import (
 )
 
 func main() {
-  index_dir := flag.String("index-dir", "wiki-index", "output index directory")
-  stopwords_file := flag.String("stopwords", "stopwords.txt", "text file with stopwords")
+  indexDir := flag.String("index-dir", "wiki-index", "output index directory")
+  stopwordsFile := flag.String("stopwords", "stopwords.txt", "text file with stopwords")
+  batchSize := flag.Int("batch", 1000, "default batch size")
+
   flag.Parse()
   args := flag.Args()
 
@@ -33,7 +35,7 @@ func main() {
     log.Fatal(err)
   }
 
-  stopwordsIo, serr := os.Open(*stopwords_file)
+  stopwordsIo, serr := os.Open(*stopwordsFile)
   if serr != nil {
     log.Fatal(serr)
   }
@@ -44,6 +46,11 @@ func main() {
     stopwords = append(stopwords, scanner.Text())
   }
 
+  index, ierr := invertedindex.CreateDirIndexWriter(*indexDir)
+  if ierr != nil {
+    log.Fatal(ierr)
+  }
+
   stopwordsFilter := processing.CreateStopWordsFilter(stopwords)
 
   analyzer := func(str string) []string {
@@ -52,10 +59,23 @@ func main() {
               processing.SimpleTokenizer(str)))
   }
 
+  buffer := []invertedindex.IndexDoc{}
+
   wikixmlparser.Parse(fi, func(page *wikixmlparser.Page){
     tokens := append( analyzer(page.Title),
                       analyzer(page.Text)...)
+    // page.Title as the document body
+    buffer := append(buffer, invertedindex.IndexDoc{ page.Title, tokens })
+    if len(buffer) >= *batchSize {
+      werr := index.Write(buffer)
+      if werr != nil {
+        log.Fatal(werr)
+      }
+      buffer = []invertedindex.IndexDoc{}
+    }
   })
+
+  index.Close()
 }
 
 func usage() {
