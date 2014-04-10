@@ -3,6 +3,7 @@ package invertedindex
 import (
   "os"
   "io"
+  "bufio"
 )
 
 type dirIndexWriter struct {
@@ -45,15 +46,17 @@ func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {
     return nil, termsDictErr
   }
 
+  indexWriter.Write( []byte{ 0xde, 0xad, 0xbe, 0xef } )
+
   return &dirIndexWriter{
     location,
     make(map[string]uint64),
     0,
-    docWriter,
+    bufio.NewWriter(docWriter),
     0,
-    docIndexWriter,
-    indexWriter,
-    0,
-    termsDictWriter,
+    bufio.NewWriter(docIndexWriter),
+    bufio.NewWriter(indexWriter),
+    4,
+    bufio.NewWriter(termsDictWriter),
   }, nil
 }

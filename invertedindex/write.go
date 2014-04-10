@@ -88,30 +88,49 @@ func freqTable(tokens []string) map[string]uint64 {
   return result
 }
 
-const NO_TAIL uint64 = 0xffffffffffffffff
+const NO_TAIL uint64 = 0x0
 
 func writeEntry(writer *dirIndexWriter, term string, elements []indexEntryElement) error {
-  entry := indexEntry { elements, NO_TAIL }
+  tailOffset := NO_TAIL
 
   if val, ok := writer.termsDict[term]; ok {
-    entry.TailOffest = val
+    tailOffset = val
   }
 
   writer.termsDict[term] = writer.indexPos
-  b := new(bytes.Buffer)
-  e := gob.NewEncoder(b)
 
-  err := e.Encode(entry)
+  buf := make([]byte, binary.MaxVarintLen64)
+  n := binary.PutUvarint(buf[:], uint64(len(elements)))
+  _, err := writer.indexWriter.Write(buf[0:n])
   if err != nil {
     return err
   }
 
-  l, werr := b.WriteTo(writer.indexWriter)
-  if werr != nil {
-    return werr
+  total := n
+
+  for _, element := range elements {
+    n = binary.PutUvarint(buf[:], element.DocId)
+    _, err = writer.indexWriter.Write(buf[0:n])
+    if err != nil {
+      return err
+    }
+    total = total + n
+    n = binary.PutUvarint(buf[:], element.Freq)
+    _, err = writer.indexWriter.Write(buf[0:n])
+    if err != nil {
+      return err
+    }
+    total = total + n
   }
 
-  writer.indexPos = writer.indexPos + uint64(l)
+  n = binary.PutUvarint(buf[:], tailOffset)
+  _, err = writer.indexWriter.Write(buf[0:n])
+  if err != nil {
+    return err
+  }
+  total = total + n
+
+  writer.indexPos = writer.indexPos + uint64(total)
 
   return nil
 }

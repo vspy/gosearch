@@ -16,11 +16,11 @@ import (
 )
 
 func main() {
-  runtime.GOMAXPROCS(4)
+  runtime.GOMAXPROCS(runtime.NumCPU())
 
   indexDir := flag.String("index-dir", "wiki-index", "output index directory")
   stopwordsFile := flag.String("stopwords", "stopwords.txt", "text file with stopwords")
-  batchSize := flag.Int("batch", 1000, "default batch size")
+  batchSize := flag.Int("batch", 5000, "default batch size")
   cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 
   flag.Parse()
@@ -115,7 +115,7 @@ func main() {
 
   var wgLem sync.WaitGroup
   lemChan := make(chan *wikixmlparser.Page, 4)
-  aggChan := make(chan *invertedindex.IndexDoc)
+  aggChan := make(chan *invertedindex.IndexDoc, 16)
 
   for i := 0; i < 4; i++ {
     wgLem.Add(1)
