@@ -36,5 +36,6 @@ func TestParse(t *testing.T) {
     if e != *page {
       t.Errorf("expected %v == %v", page, e)
     }
+    return true
   })
 }

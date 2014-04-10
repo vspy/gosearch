@@ -20,6 +20,11 @@ type dirIndexWriter struct {
 }
 
 func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {
+  dirErr := os.MkdirAll(location, 0755)
+  if dirErr != nil {
+    return nil, dirErr
+  }
+
   docWriter, docErr := os.Create(docLocation(location))
   if docErr != nil {
     return nil, docErr

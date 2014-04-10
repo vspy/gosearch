@@ -10,7 +10,7 @@ type Page struct {
   Title string `xml:"title"`
   Text string `xml:"revision>text"`
 }
-type PageConsumer func(page *Page)
+type PageConsumer func(page *Page) bool
 
 func Parse(reader io.Reader, fn PageConsumer) {
   decoder := xml.NewDecoder(reader)
@@ -30,7 +30,10 @@ func Parse(reader io.Reader, fn PageConsumer) {
         if se.Name.Local == "page" {
           var p Page
           decoder.DecodeElement(&p, &se)
-          fn(&p)
+          shouldContinue := fn(&p)
+          if !shouldContinue {
+            return
+          }
         }
     }
 
