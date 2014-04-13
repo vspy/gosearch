@@ -10,7 +10,7 @@ type IndexDoc struct {
 }
 
 type IndexWriter interface {
-  Write(docs []IndexDoc) error
+  Write(docs []*IndexDoc) error
   Close()
 }
 

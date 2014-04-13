@@ -1,25 +1,32 @@
 package invertedindex
 
 import (
+  "fmt"
   "encoding/binary"
   "encoding/gob"
   "bytes"
 )
 
-func (writer *dirIndexWriter) Write(docs []IndexDoc) error {
-  docMap := make(map[uint64]([]string))
+func (writer *dirIndexWriter) Write(docs []*IndexDoc) error {
+  docMap := make(map[uint64](*[]string))
 
   for _, doc := range docs {
     id, err := writeDoc(writer, doc.Document)
     if err != nil {
       return err
     }
-    docMap[id] = doc.Tokens
+    docMap[id] = &doc.Tokens
   }
 
-  e := docsToEntryElements(docMap)
+  e := docsToEntryElements(&docMap)
 
-  for term, elements := range e {
+  i := 0
+
+  for term, elements := range *e {
+    if (i==0) {
+      fmt.Print(term)
+    }
+    i = i + 1
     werr := writeEntry(writer, term, elements)
     if werr != nil {
       return werr
@@ -67,30 +74,33 @@ type indexEntryElement struct {
   Freq uint64
 }
 
-func docsToEntryElements(docs map[uint64]([]string)) map[string]([]indexEntryElement) {
-  result := make(map[string]([]indexEntryElement))
+func docsToEntryElements(docs *map[uint64](*[]string)) *map[string]([]*indexEntryElement) {
+  result := make(map[string]([]*indexEntryElement))
 
-  for docId, tokens := range docs {
+  for docId, tokens := range *docs {
     t := freqTable(tokens)
 
-    for token, freq := range t {
-      result[token] = append(result[token], indexEntryElement{docId, freq})
+    for token, freq := range *t {
+      result[token] = append(result[token], &indexEntryElement{docId, freq})
   } }
 
-  return result
+  return &result
 }
 
-func freqTable(tokens []string) map[string]uint64 {
+func freqTable(tokens *[]string) *map[string]uint64 {
   result := make(map[string]uint64)
-  for _, token := range tokens {
+  for _, token := range *tokens {
     result[token] = result[token] + 1
   }
-  return result
+  return &result
 }
 
 const NO_TAIL uint64 = 0x0
 
-func writeEntry(writer *dirIndexWriter, term string, elements []indexEntryElement) error {
+
+var writeEntryBuffer = make([]byte, binary.MaxVarintLen64)
+
+func writeEntry(writer *dirIndexWriter, term string, elements []*indexEntryElement) error {
   tailOffset := NO_TAIL
 
   if val, ok := writer.termsDict[term]; ok {
@@ -99,9 +109,8 @@ func writeEntry(writer *dirIndexWriter, term string, elements []indexEntryElemen
 
   writer.termsDict[term] = writer.indexPos
 
-  buf := make([]byte, binary.MaxVarintLen64)
-  n := binary.PutUvarint(buf[:], uint64(len(elements)))
-  _, err := writer.indexWriter.Write(buf[0:n])
+  n := binary.PutUvarint(writeEntryBuffer[:], uint64(len(elements)))
+  _, err := writer.indexWriter.Write(writeEntryBuffer[0:n])
   if err != nil {
     return err
   }
@@ -109,22 +118,22 @@ func writeEntry(writer *dirIndexWriter, term string, elements []indexEntryElemen
   total := n
 
   for _, element := range elements {
-    n = binary.PutUvarint(buf[:], element.DocId)
-    _, err = writer.indexWriter.Write(buf[0:n])
+    n = binary.PutUvarint(writeEntryBuffer[:], element.DocId)
+    _, err = writer.indexWriter.Write(writeEntryBuffer[0:n])
     if err != nil {
       return err
     }
     total = total + n
-    n = binary.PutUvarint(buf[:], element.Freq)
-    _, err = writer.indexWriter.Write(buf[0:n])
+    n = binary.PutUvarint(writeEntryBuffer[:], element.Freq)
+    _, err = writer.indexWriter.Write(writeEntryBuffer[0:n])
     if err != nil {
       return err
     }
     total = total + n
   }
 
-  n = binary.PutUvarint(buf[:], tailOffset)
-  _, err = writer.indexWriter.Write(buf[0:n])
+  n = binary.PutUvarint(writeEntryBuffer[:], tailOffset)
+  _, err = writer.indexWriter.Write(writeEntryBuffer[0:n])
   if err != nil {
     return err
   }

@@ -6,10 +6,16 @@ import (
   "encoding/xml"
 )
 
+type Redirect struct {
+  Title string `xml:"title,attr"`
+}
+
 type Page struct {
   Title string `xml:"title"`
+  Redirect Redirect `xml:"redirect"`
   Text string `xml:"revision>text"`
 }
+
 type PageConsumer func(page *Page) bool
 
 func Parse(reader io.Reader, fn PageConsumer) {

@@ -2,7 +2,6 @@ package invertedindex
 
 import (
   "encoding/gob"
-  "os"
 )
 
 func (writer *dirIndexWriter) Close() error {
@@ -12,21 +11,40 @@ func (writer *dirIndexWriter) Close() error {
     return err
   }
 
-  dwErr := writer.docWriter.(*os.File).Close()
+  dwErr := writer.docWriter.Flush()
   if dwErr != nil {
     return dwErr
   }
-  diwErr := writer.docIndexWriter.(*os.File).Close()
+  dfErr := writer.docFile.Close()
+  if dfErr != nil {
+    return dfErr
+  }
+
+  diwErr := writer.docIndexWriter.Flush()
   if diwErr != nil {
     return diwErr
   }
-  iwErr := writer.indexWriter.(*os.File).Close()
+  difErr := writer.docIndexFile.Close()
+  if difErr != nil {
+    return difErr
+  }
+
+  iwErr := writer.indexWriter.Flush()
   if iwErr != nil {
     return iwErr
   }
-  tdErr := writer.termsDictWriter.(*os.File).Close()
+  ifErr := writer.indexFile.Close()
+  if ifErr != nil {
+    return ifErr
+  }
+
+  tdErr := writer.termsDictWriter.Flush()
   if tdErr != nil {
     return tdErr
+  }
+  tdfErr := writer.termsDictFile.Close()
+  if tdfErr != nil {
+    return tdfErr
   }
 
   return nil

@@ -1,17 +1,52 @@
 package processing
 
 import (
-  "regexp"
+  "io"
   "strings"
+  "unicode"
 )
 
 type Tokenizer func(str string) []string
 type TokenFilter func(tokens []string) []string
 
-var simpleTokenRegex *regexp.Regexp = regexp.MustCompile(`\w('\w+|\w)*`)
+const (
+  normal = 0
+  apostrophe = 1
+)
 
 func SimpleTokenizer(str string) []string {
-  return simpleTokenRegex.FindAllString(str, -1)
+  return tokenize(normal, strings.NewReader(str), 0, "", []string{})
+}
+
+func tokenize(mode int, str *strings.Reader, l int, token string, buffer []string) []string {
+  ch, _, err := str.ReadRune()
+  if err == io.EOF {
+    if l > 0 {
+      buffer = append(buffer, token)
+    }
+    return buffer
+  } else {
+    switch mode {
+      case apostrophe:
+        if unicode.IsLetter(ch) {
+          return tokenize(normal, str, l+2, token+"'"+string(ch), buffer)
+        } else {
+          buffer = append(buffer, token)
+          return tokenize(normal, str, 0, "", buffer)
+        }
+      default:
+        if unicode.IsLetter(ch) {
+          return tokenize(normal, str, l+1, token+string(ch), buffer)
+        } else if ch == '\'' && l > 0 {
+          return tokenize(apostrophe, str, l, token, buffer)
+        } else {
+          if l > 0 {
+            buffer = append(buffer, token)
+          }
+          return tokenize(normal, str, 0, "", buffer)
+        }
+    }
+  }
 }
 
 func LowercaseFilter(tokens []string) []string {

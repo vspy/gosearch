@@ -2,22 +2,32 @@ package invertedindex
 
 import (
   "os"
-  "io"
   "bufio"
+  "fmt"
 )
 
 type dirIndexWriter struct {
   location string
   termsDict map[string]uint64
   docId uint64
-  docWriter io.Writer
-  docWriterPos uint64
-  docIndexWriter io.Writer
 
-  indexWriter io.Writer
+  docFile *os.File
+  docWriter *bufio.Writer
+  docWriterPos uint64
+
+  docIndexFile *os.File
+  docIndexWriter *bufio.Writer
+
+  indexFile *os.File
+  indexWriter *bufio.Writer
   indexPos uint64
 
-  termsDictWriter io.Writer
+  termsDictFile *os.File
+  termsDictWriter *bufio.Writer
+}
+
+func (writer * dirIndexWriter) PrintStats() {
+  fmt.Printf("terms:%v\n", len(writer.termsDict))
 }
 
 func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {
@@ -26,37 +36,38 @@ func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {
     return nil, dirErr
   }
 
-  docWriter, docErr := os.Create(docLocation(location))
+  docFile, docErr := os.Create(docLocation(location))
   if docErr != nil {
     return nil, docErr
   }
 
-  docIndexWriter, docIndexErr := os.Create(docIndexLocation(location))
+  docIndexFile, docIndexErr := os.Create(docIndexLocation(location))
   if docIndexErr != nil {
     return nil, docIndexErr
   }
 
-  indexWriter, indexErr := os.Create(indexLocation(location))
+  indexFile, indexErr := os.Create(indexLocation(location))
   if indexErr != nil {
     return nil, indexErr
   }
 
-  termsDictWriter, termsDictErr := os.Create(termsLocation(location))
+  termsDictFile, termsDictErr := os.Create(termsLocation(location))
   if termsDictErr != nil {
     return nil, termsDictErr
   }
 
+  indexWriter := bufio.NewWriter(indexFile)
   indexWriter.Write( []byte{ 0xde, 0xad, 0xbe, 0xef } )
 
   return &dirIndexWriter{
     location,
     make(map[string]uint64),
     0,
-    bufio.NewWriter(docWriter),
+    docFile, bufio.NewWriter(docFile),
     0,
-    bufio.NewWriter(docIndexWriter),
-    bufio.NewWriter(indexWriter),
+    docIndexFile, bufio.NewWriter(docIndexFile),
+    indexFile, indexWriter,
     4,
-    bufio.NewWriter(termsDictWriter),
+    termsDictFile, bufio.NewWriter(termsDictFile),
   }, nil
 }

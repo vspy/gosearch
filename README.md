@@ -18,3 +18,17 @@ real  15m49.556s
 user  32m45.092s
 sys 2m8.009s
 ```
+
+1000 batch, wikisource, buffered writer, perfect batching:
+```
+real  12m39.609s
+user  33m1.934s
+sys 2m5.266s
+```
+
+1000, wikisource, buffered, proper batching, FSM tokenizer:
+```
+real  11m10.720s
+user  32m24.632s
+sys 1m34.062s
+```

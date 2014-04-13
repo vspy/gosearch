@@ -9,6 +9,7 @@ import (
   "runtime"
   "runtime/pprof"
   "sync"
+  "strings"
 
   "gosearch/wikixmlparser"
   "gosearch/processing"
@@ -16,11 +17,12 @@ import (
 )
 
 func main() {
-  runtime.GOMAXPROCS(runtime.NumCPU())
+  cpus := runtime.NumCPU()
+  runtime.GOMAXPROCS(cpus)
 
   indexDir := flag.String("index-dir", "wiki-index", "output index directory")
   stopwordsFile := flag.String("stopwords", "stopwords.txt", "text file with stopwords")
-  batchSize := flag.Int("batch", 5000, "default batch size")
+  batchSize := flag.Int("batch", 100, "default batch size")
   cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 
   flag.Parse()
@@ -52,15 +54,21 @@ func main() {
     log.Fatal(err)
   }
 
-  stopwordsIo, serr := os.Open(*stopwordsFile)
-  if serr != nil {
-    log.Fatal(serr)
-  }
+  analyzer := createAnalyzer(*stopwordsFile)
 
-  scanner := bufio.NewScanner(stopwordsIo)
-  stopwords := []string{}
-  for scanner.Scan() {
-    stopwords = append(stopwords, scanner.Text())
+  lemmatizeWorker := func( wg *sync.WaitGroup, in chan []*wikixmlparser.Page, out chan []*invertedindex.IndexDoc ) {
+    fmt.Print("<")
+    for pages := range in {
+      buffer := []*invertedindex.IndexDoc{}
+      for _, page := range pages {
+        tokens := append( analyzer(page.Title),
+                          analyzer(page.Text)...)
+        buffer = append(buffer, &invertedindex.IndexDoc{ page.Title, tokens })
+      }
+      out <- buffer
+    }
+    wg.Done()
+    fmt.Print(">")
   }
 
   index, ierr := invertedindex.CreateDirIndexWriter(*indexDir)
@@ -68,56 +76,28 @@ func main() {
     log.Fatal(ierr)
   }
 
-  stopwordsFilter := processing.CreateStopWordsFilter(stopwords)
-
-  analyzer := func(str string) []string {
-    return stopwordsFilter(
-            processing.LowercaseFilter(
-              processing.SimpleTokenizer(str)))
-  }
-
-  lemmatizeWorker := func( wg *sync.WaitGroup, in chan *wikixmlparser.Page, out chan *invertedindex.IndexDoc ) {
-    fmt.Print("<")
-    for page := range in {
-     tokens := append( analyzer(page.Title),
-                        analyzer(page.Text)...)
-     out <- &invertedindex.IndexDoc{ page.Title, tokens }
-    }
-    wg.Done()
-    fmt.Print(">")
-  }
-
-  buffer := []invertedindex.IndexDoc{}
-
-  aggregatorWorker := func( wg *sync.WaitGroup, in chan *invertedindex.IndexDoc ) {
-    for doc := range in {
-      buffer = append(buffer, *doc)
-      // page.Title as the document body
-      if len(buffer) >= *batchSize {
-        werr := index.Write(buffer)
-        if werr != nil {
-          log.Fatal(werr)
-        }
-        buffer = []invertedindex.IndexDoc{}
-        fmt.Print(".")
-      }
-    }
-
-    if len(buffer) > 0 {
-      werr := index.Write(buffer)
+  aggregatorWorker := func( wg *sync.WaitGroup, in chan []*invertedindex.IndexDoc ) {
+    aggCnt := 0
+    for docs := range in {
+      werr := index.Write(docs)
       if werr != nil {
         log.Fatal(werr)
       }
+      aggCnt = aggCnt + 1
       fmt.Print(".")
+      if aggCnt % 10 == 0 {
+        fmt.Printf("%v\n", aggCnt)
+        index.PrintStats()
+      }
     }
     wg.Done()
   }
 
   var wgLem sync.WaitGroup
-  lemChan := make(chan *wikixmlparser.Page, 4)
-  aggChan := make(chan *invertedindex.IndexDoc, 16)
+  lemChan := make(chan []*wikixmlparser.Page, cpus)
+  aggChan := make(chan []*invertedindex.IndexDoc, cpus)
 
-  for i := 0; i < 4; i++ {
+  for i := 0; i < cpus; i++ {
     wgLem.Add(1)
     go lemmatizeWorker( &wgLem, lemChan, aggChan )
   }
@@ -127,20 +107,63 @@ func main() {
   go aggregatorWorker( &wgAgg, aggChan )
 
   cnt := 0
+  buffer := []*wikixmlparser.Page{}
   wikixmlparser.Parse(fi, func(page *wikixmlparser.Page) bool {
-    lemChan <- page
+    if page.Redirect.Title == "" &&
+        !strings.HasPrefix(page.Title, "Talk:") &&
+        !strings.HasPrefix(page.Title, "User:") {
+      buffer = append(buffer, page)
+    }
+
+    if len(buffer) >= *batchSize {
+      lemChan <- buffer
+      buffer = []*wikixmlparser.Page{}
+    }
+
     cnt = cnt + 1
     if profile && cnt > 5000 {
       return false
     }
+
     return true
   })
+
+  if len(buffer) > 0 {
+    lemChan <- buffer
+  }
 
   close(lemChan)
   wgLem.Wait()
   close(aggChan)
   wgAgg.Wait()
   index.Close()
+}
+
+func createAnalyzer(stopwordsFile string) (func(string) []string){
+  stopwordsIo, serr := os.Open(stopwordsFile)
+  if serr != nil {
+    log.Fatal(serr)
+  }
+
+  defer func() {
+    if err := stopwordsIo.Close(); err != nil {
+      panic(err)
+    }
+  }()
+
+  scanner := bufio.NewScanner(stopwordsIo)
+  stopwords := []string{}
+  for scanner.Scan() {
+    stopwords = append(stopwords, scanner.Text())
+  }
+
+  stopwordsFilter := processing.CreateStopWordsFilter(stopwords)
+
+  return func(str string) []string {
+    return stopwordsFilter(
+            processing.LowercaseFilter(
+              processing.SimpleTokenizer(str)))
+  }
 }
 
 func usage() {

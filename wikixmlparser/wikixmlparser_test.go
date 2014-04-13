@@ -30,7 +30,7 @@ func TestParse(t *testing.T) {
     Page{Title: "Page 2 title", Text: "Page 2 text"},
   }
 
-  Parse(reader, func(page *Page) {
+  Parse(reader, func(page *Page) bool {
     var e Page
     e, expected = expected[0], expected[1:len(expected)]
     if e != *page {
