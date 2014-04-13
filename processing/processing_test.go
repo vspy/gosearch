@@ -65,7 +65,7 @@ Blocking[edit]
 Access to SoundCloud website has been blocked by the Government of Turkey on 24 January 2014.[21][22][23][24] A user named "haramzadeler" ("illegal ones" in Turkish) uploaded a total of 7 secretly recorded phone call tapes which reveal private conversations between Recep Tayyip Erdoğan (the Turkish Prime Minister) and others, including: Erdoğan Bayraktar, local politicians, some businessmen, PM's daughter Sümeyye Erdoğan and his son Bilal Erdoğan. Linked to the 2013 corruption scandal in Turkey, sound recordings revealed some conversations of illegal activity and possible bribery, mainly about building permit of luxurious villas on protected cultural heritage sites in Urla, İzmir.[25]
 
 Opposition party Cumhuriyet Halk Partisi submitted a parliamentary question to TBMM concerning the issue and the questionnaire particularly asks for reasons of banning SoundCloud services without any proper case and/or reason.[26][27]
-    `)
+    `, 128)
   }
 }
 
@@ -73,7 +73,7 @@ func TestSimpleTokenizer(t *testing.T) {
   ref := []string{"See", "John", "Markoff", "Apple", "Adopts", "Open", "Source", "for", "its", "Server", "Computers", "New", "York", "Times"}
   tokenized := SimpleTokenizer(`
       #See John Markoff, “Apple Adopts ‘Open Source’ for its Server Computers, ‘New York Times’”
-     `)
+     `, 128)
 
   if fmt.Sprintf("%v",tokenized) != fmt.Sprintf("%v",ref) {
     t.Errorf("expected %v == %v", tokenized, ref)
@@ -84,7 +84,7 @@ func TestSimpleTokenizerApostrophe(t *testing.T) {
   ref := []string{"There's","not","a","problem","that","I","can't","fix"}
   tokenized := SimpleTokenizer(`
      'There's not a problem that I can't fix'
-  `)
+  `, 128)
   if fmt.Sprintf("%v",tokenized) != fmt.Sprintf("%v",ref) {
     t.Errorf("expected %v == %v", tokenized, ref)
   }
@@ -92,19 +92,29 @@ func TestSimpleTokenizerApostrophe(t *testing.T) {
 
 // ignoring japanese, chinese, korean for now, sorry
 func TestSimpleTokenizerCJK(t *testing.T) {
-  ref := []string{}
+  ref := []string{"宮","崎","駿"}
   tokenized := SimpleTokenizer(`
      宮崎 駿
-  `)
+  `, 128)
   if fmt.Sprintf("%v",tokenized) != fmt.Sprintf("%v",ref) {
     t.Errorf("expected %v == %v", tokenized, ref)
   }
 }
 
 func TestSimpleTokenizerEmptyString(t *testing.T) {
-  tokenized := SimpleTokenizer("")
+  tokenized := SimpleTokenizer("", 128)
   if len(tokenized) != 0 {
     t.Errorf("expected empty array, but got %v", tokenized)
+  }
+}
+
+func TestSimpleTokenizerCap(t *testing.T) {
+  ref := []string{"not","a","that","I","can't","fix"}
+  tokenized := SimpleTokenizer(`
+     'There's not a problem that I can't fix'
+  `, 4)
+  if fmt.Sprintf("%v",tokenized) != fmt.Sprintf("%v",ref) {
+    t.Errorf("expected %v == %v", tokenized, ref)
   }
 }
 

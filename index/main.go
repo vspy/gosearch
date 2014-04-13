@@ -24,6 +24,7 @@ func main() {
   batchCount := flag.Int("batch", 100, "default batch size")
   batchSize := flag.Int("batch-size", 1024*1024*4, "maximum batch size in bytes")
   cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
+  maxTokenSize := flag.Int("max-token-size", 64, "maximum token size in characters")
 
   flag.Parse()
 
@@ -54,7 +55,7 @@ func main() {
     log.Fatal(err)
   }
 
-  analyzer := createAnalyzer(*stopwordsFile)
+  analyzer := createAnalyzer(*stopwordsFile, *maxTokenSize)
 
   lemmatizeWorker := func( idx int, wg *sync.WaitGroup, in chan []*wikixmlparser.Page, out chan []*invertedindex.IndexDoc ) {
     log.Printf("started lemmatizer worker %v", idx)
@@ -149,7 +150,7 @@ func main() {
   index.Close()
 }
 
-func createAnalyzer(stopwordsFile string) (func(string) []string){
+func createAnalyzer(stopwordsFile string, maxTokenSize int) (func(string) []string){
   stopwordsIo, serr := os.Open(stopwordsFile)
   if serr != nil {
     log.Fatal(serr)
@@ -172,7 +173,7 @@ func createAnalyzer(stopwordsFile string) (func(string) []string){
   return func(str string) []string {
     return stopwordsFilter(
             processing.LowercaseFilter(
-              processing.SimpleTokenizer(str)))
+              processing.SimpleTokenizer(str, maxTokenSize)))
   }
 }
 
