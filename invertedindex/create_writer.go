@@ -3,7 +3,7 @@ package invertedindex
 import (
   "os"
   "bufio"
-  "fmt"
+  "log"
 )
 
 type dirIndexWriter struct {
@@ -26,8 +26,8 @@ type dirIndexWriter struct {
   termsDictWriter *bufio.Writer
 }
 
-func (writer * dirIndexWriter) PrintStats() {
-  fmt.Printf("terms:%v\n", len(writer.termsDict))
+func (writer * dirIndexWriter) LogStats() {
+  log.Printf("terms dictionary size %v\n", len(writer.termsDict))
 }
 
 func CreateDirIndexWriter (location string) (*dirIndexWriter, error) {

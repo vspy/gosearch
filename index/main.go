@@ -9,7 +9,6 @@ import (
   "runtime"
   "runtime/pprof"
   "sync"
-  "strings"
 
   "gosearch/wikixmlparser"
   "gosearch/processing"
@@ -22,7 +21,8 @@ func main() {
 
   indexDir := flag.String("index-dir", "wiki-index", "output index directory")
   stopwordsFile := flag.String("stopwords", "stopwords.txt", "text file with stopwords")
-  batchSize := flag.Int("batch", 100, "default batch size")
+  batchCount := flag.Int("batch", 100, "default batch size")
+  batchSize := flag.Int("batch-size", 1024*1024*4, "maximum batch size in bytes")
   cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 
   flag.Parse()
@@ -56,8 +56,8 @@ func main() {
 
   analyzer := createAnalyzer(*stopwordsFile)
 
-  lemmatizeWorker := func( wg *sync.WaitGroup, in chan []*wikixmlparser.Page, out chan []*invertedindex.IndexDoc ) {
-    fmt.Print("<")
+  lemmatizeWorker := func( idx int, wg *sync.WaitGroup, in chan []*wikixmlparser.Page, out chan []*invertedindex.IndexDoc ) {
+    log.Printf("started lemmatizer worker %v", idx)
     for pages := range in {
       buffer := []*invertedindex.IndexDoc{}
       for _, page := range pages {
@@ -67,8 +67,9 @@ func main() {
       }
       out <- buffer
     }
+
+    log.Printf("stopping lemmatizer worker %v", idx)
     wg.Done()
-    fmt.Print(">")
   }
 
   index, ierr := invertedindex.CreateDirIndexWriter(*indexDir)
@@ -77,19 +78,23 @@ func main() {
   }
 
   aggregatorWorker := func( wg *sync.WaitGroup, in chan []*invertedindex.IndexDoc ) {
-    aggCnt := 0
+    log.Print("starting aggregator worker")
+    aggMessages :=0
+    aggCounter := 0
     for docs := range in {
       werr := index.Write(docs)
       if werr != nil {
         log.Fatal(werr)
       }
-      aggCnt = aggCnt + 1
-      fmt.Print(".")
-      if aggCnt % 10 == 0 {
-        fmt.Printf("%v\n", aggCnt)
-        index.PrintStats()
+      aggMessages = aggMessages + 1
+      aggCounter = aggCounter + len(docs)
+      if aggMessages % 10 == 0 {
+        log.Printf("written to disk %v documents (in %v batches)", aggCounter, aggMessages)
+        index.LogStats()
       }
     }
+    log.Printf("written to disk %v documents (in %v batches)", aggCounter, aggMessages)
+    log.Print("shutting down aggregator worker")
     wg.Done()
   }
 
@@ -99,7 +104,7 @@ func main() {
 
   for i := 0; i < cpus; i++ {
     wgLem.Add(1)
-    go lemmatizeWorker( &wgLem, lemChan, aggChan )
+    go lemmatizeWorker( i, &wgLem, lemChan, aggChan )
   }
 
   var wgAgg sync.WaitGroup
@@ -107,17 +112,21 @@ func main() {
   go aggregatorWorker( &wgAgg, aggChan )
 
   cnt := 0
+
   buffer := []*wikixmlparser.Page{}
+  bufferSize := 0
+
   wikixmlparser.Parse(fi, func(page *wikixmlparser.Page) bool {
-    if page.Redirect.Title == "" &&
-        !strings.HasPrefix(page.Title, "Talk:") &&
-        !strings.HasPrefix(page.Title, "User:") {
+    if page.Redirect.Title == "" {
       buffer = append(buffer, page)
+      bufferSize = bufferSize + len(page.Title) + len(page.Text)
     }
 
-    if len(buffer) >= *batchSize {
+    if len(buffer) >= *batchCount || bufferSize >= *batchSize {
+      log.Printf("+ %v (%v bytes)", len(buffer), bufferSize)
       lemChan <- buffer
       buffer = []*wikixmlparser.Page{}
+      bufferSize = 0
     }
 
     cnt = cnt + 1
@@ -129,6 +138,7 @@ func main() {
   })
 
   if len(buffer) > 0 {
+    log.Printf("+ %v (%v bytes)", len(buffer), bufferSize)
     lemChan <- buffer
   }
 

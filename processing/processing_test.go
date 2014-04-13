@@ -90,6 +90,17 @@ func TestSimpleTokenizerApostrophe(t *testing.T) {
   }
 }
 
+// ignoring japanese, chinese, korean for now, sorry
+func TestSimpleTokenizerCJK(t *testing.T) {
+  ref := []string{}
+  tokenized := SimpleTokenizer(`
+     宮崎 駿
+  `)
+  if fmt.Sprintf("%v",tokenized) != fmt.Sprintf("%v",ref) {
+    t.Errorf("expected %v == %v", tokenized, ref)
+  }
+}
+
 func TestSimpleTokenizerEmptyString(t *testing.T) {
   tokenized := SimpleTokenizer("")
   if len(tokenized) != 0 {

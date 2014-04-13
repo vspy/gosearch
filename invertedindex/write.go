@@ -1,7 +1,6 @@
 package invertedindex
 
 import (
-  "fmt"
   "encoding/binary"
   "encoding/gob"
   "bytes"
@@ -20,13 +19,7 @@ func (writer *dirIndexWriter) Write(docs []*IndexDoc) error {
 
   e := docsToEntryElements(&docMap)
 
-  i := 0
-
   for term, elements := range *e {
-    if (i==0) {
-      fmt.Print(term)
-    }
-    i = i + 1
     werr := writeEntry(writer, term, elements)
     if werr != nil {
       return werr
@@ -103,7 +96,9 @@ var writeEntryBuffer = make([]byte, binary.MaxVarintLen64)
 func writeEntry(writer *dirIndexWriter, term string, elements []*indexEntryElement) error {
   tailOffset := NO_TAIL
 
-  if val, ok := writer.termsDict[term]; ok {
+  val, ok := writer.termsDict[term]
+
+  if ok {
     tailOffset = val
   }
 
