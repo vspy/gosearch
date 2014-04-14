@@ -32,3 +32,17 @@ real  11m10.720s
 user  32m24.632s
 sys 1m34.062s
 ```
+
+current revisions enwiki, 25m pages:
+```
+real  163m13.560s
+user  410m6.874s
+sys 8m4.561s
+```
+
+enwiki articles
+```
+real  77m28.131s
+user  185m21.550s
+sys 3m37.201s
+```
