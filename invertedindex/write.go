@@ -29,7 +29,7 @@ func (writer *dirIndexWriter) Write(docs []*IndexDoc) error {
   return nil
 }
 
-func writeDoc(writer *dirIndexWriter, doc interface{}) (uint64, error){
+func writeDoc(writer *dirIndexWriter, doc string) (uint64, error){
   b := new(bytes.Buffer)
   e := gob.NewEncoder(b)
 
@@ -57,16 +57,6 @@ func writeDoc(writer *dirIndexWriter, doc interface{}) (uint64, error){
   return id, nil
 }
 
-type indexEntry struct {
-  Entries []indexEntryElement
-  TailOffest uint64
-}
-
-type indexEntryElement struct {
-  DocId uint64
-  Freq uint64
-}
-
 func docsToEntryElements(docs *map[uint64](*[]string)) *map[string]([]*indexEntryElement) {
   result := make(map[string]([]*indexEntryElement))
 
@@ -80,16 +70,15 @@ func docsToEntryElements(docs *map[uint64](*[]string)) *map[string]([]*indexEntr
   return &result
 }
 
-func freqTable(tokens *[]string) *map[string]uint64 {
-  result := make(map[string]uint64)
+func freqTable(tokens *[]string) *map[string]float64 {
+  result := make(map[string]float64)
+
   for _, token := range *tokens {
     result[token] = result[token] + 1
   }
+
   return &result
 }
-
-const NO_TAIL uint64 = 0x0
-
 
 var writeEntryBuffer = make([]byte, binary.MaxVarintLen64)
 
@@ -119,12 +108,12 @@ func writeEntry(writer *dirIndexWriter, term string, elements []*indexEntryEleme
       return err
     }
     total = total + n
-    n = binary.PutUvarint(writeEntryBuffer[:], element.Freq)
-    _, err = writer.indexWriter.Write(writeEntryBuffer[0:n])
+
+    err = binary.Write(writer.indexWriter, binary.LittleEndian, element.Freq)
     if err != nil {
       return err
     }
-    total = total + n
+    total = total + binary.Size(element.Freq)
   }
 
   n = binary.PutUvarint(writeEntryBuffer[:], tailOffset)

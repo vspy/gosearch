@@ -1,11 +1,12 @@
 package invertedindex
 
-import (
-  "io"
-)
+type SearchResult struct {
+  DocId uint64
+  Score float64
+}
 
 type IndexDoc struct {
-  Document interface{}
+  Document string
   Tokens []string
 }
 
@@ -15,14 +16,7 @@ type IndexWriter interface {
 }
 
 type IndexReader interface {
-  TokenSearch(token string) interface{}
+  TermSearch(term string) ([]SearchResult, error)
+  GetDoc(id uint64) (string, error)
+  Close()
 }
-
-type dirIndexReader struct {
-  location string
-  termDictionary map[string]uint64
-  docReader io.Reader
-  docIndexReader io.ReadSeeker
-  indexReader io.ReadSeeker
-}
-

@@ -76,13 +76,13 @@ func TestWriteDoc(t *testing.T) {
   writer := testWriter()
 
   doc := "just a string"
-  idx, err := writeDoc(writer, &doc)
+  idx, err := writeDoc(writer, doc)
 
   if err != nil || idx != 0 {
     t.Errorf("expected writeDoc to finish succesfully, but got %v %v", idx, err)
   }
 
-  idx1, err1 :=  writeDoc(writer, &doc)
+  idx1, err1 :=  writeDoc(writer, doc)
   if err1 != nil || idx1 != 1 {
     t.Errorf("expected writeDoc to finish succesfully, but got %v %v", idx1, err)
   }
