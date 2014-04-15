@@ -10,7 +10,7 @@ make
 
 Download latest wiki dump:
 ```
-curl -O http://download.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2
+curl -L -O http://download.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2
 bzip2 -d enwiki-latest-pages-articles.xml.bz2
 ```
 
