@@ -1,5 +1,23 @@
+Install go:
 ```
-time ./index -stopwords=./src/gosearch/stopwords.txt enwiki-latest-pages-articles.xml
+brew install go
+```
+
+Test & build both index and search parts:
+```
+make
+```
+
+Download latest wiki dump:
+```
+curl -O http://download.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2
+bzip2 -d enwiki-latest-pages-articles.xml.bz2
+```
+
+Now it's pretty much straightforward.
+
+```
+time ./index enwiki-latest-pages-articles.xml
 
 real  78m45.226s
 user  195m0.323s
